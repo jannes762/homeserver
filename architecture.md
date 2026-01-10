@@ -1,17 +1,55 @@
-# Architectuur
+# Architecture
 
-## Virtualisatie
-- Platform: Proxmox VE
-- VM's voor internet-facing services
-- LXC voor interne tools
+## Overview
 
-## Services
+- Hypervisor: Proxmox
+- Filesystem: ZFS
+- Virtualization: LXC by default, VM only when required
+- Backup strategy: ZFS snapshots + Borg to Hetzner Storage Box
 
-- Vaultwarden
-  - Type: VM
-  - Runtime: Docker
-  - Reden: secrets + publiek bereikbaar
+## Design principles
 
-- Monitoring
-  - Type: LXC
-  - Reden: intern, low-risk
+- Data is more important than services
+- All persistent data lives on ZFS datasets
+- Containers are disposable, datasets are not
+- Critical and non-critical data are physically separated
+
+## Virtualization choices
+
+- LXC containers for most services
+- VM only when:
+  - OS-level control is required (e.g. Home Assistant OS)
+  - Hardware passthrough requires it
+
+## Services overview
+
+### Core services
+- Home Assistant (VM)
+- Bitwarden / Vaultwarden
+- Immich
+
+### Archive & knowledge
+- Paperless (documents)
+- Calibre / Calibre Web (ebooks)
+- Nextcloud (knowledge archive)
+- Obsidian (knowledge editing)
+- Karakeep
+- Vikunja
+
+### Media (non-critical)
+- Jellyfin
+- Radarr
+- Sonarr
+- Jackett
+- qBittorrent
+
+### Maybe / future
+- TRIP
+
+
+## Non-goals
+
+- High availability
+- Multi-node clustering
+- Zero-downtime upgrades
+- Enterprise-grade monitoring
