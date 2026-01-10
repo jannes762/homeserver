@@ -3,6 +3,10 @@
 Platform: Proxmox VE  
 Doel: self-hosted services + password manager
 
+pve.home
+192.168.0.248/24
+
+
 ## Status
 - In opbouw
 - HDD's nog onderweg
