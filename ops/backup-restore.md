@@ -3,6 +3,13 @@
 ## Scope
 
 This document describes backup and restore procedures for critical data.
+This includes:
+- user-generated content (photos, documents, knowledge)
+- service state required for recovery (databases)
+- configuration required to reattach data to services
+
+Application containers themselves are treated as disposable.
+
 
 ## Backup layers
 
@@ -12,25 +19,75 @@ This document describes backup and restore procedures for critical data.
 - Fast local rollback
 - Enabled on all datasets in pool `tank`
 
+ZFS snapshots are not used for database consistency guarantees.
+Databases are backed up using logical dumps instead.
+
 ### Layer 2: Offsite backups
 
 - Tool: BorgBackup
 - Target: Hetzner Storage Box
-- Encrypted repositories
+- Transport: SSH
+- Encryption: Borg native encryption
+- Repositories are accessed from the Proxmox host only
+
+Offsite backups are split by data type:
+- snapshot-based backups for large immutable data (photos)
+- logical dumps for databases
 
 ## Included datasets
 
-- photos
-- documents
-- ebooks
-- knowledge
-- configs
+### Snapshot-backed datasets (ZFS → Borg)
+
+- tank/photos
+- tank/documents
+- tank/ebooks
+- tank/knowledge
+
+These datasets are protected by:
+- periodic ZFS snapshots (sanoid)
+- Borg backups of snapshot contents
+
+### Dump-backed data (logical backups)
+
+- PostgreSQL database used by Immich
+
+Database data is not backed up as raw files.
+Instead, a daily pg_dump is created and backed up using Borg.
+
 
 ## Excluded datasets
 
 - media
 - caches
 - temporary data
+
+These datasets can be regenerated and do not contain unique state.
+They are explicitly excluded to reduce backup size and complexity.
+
+## Database backups
+
+### Immich PostgreSQL database
+
+- Database engine: PostgreSQL
+- Deployment: Docker inside an LXC container
+- Backup method: logical dump using pg_dump
+- Execution context: Proxmox host (via pct exec)
+
+### Dump location
+
+- Host path: /rpool/data/immich-db-dumps
+- This directory contains only dump files
+- One dump file is kept locally; history is stored in Borg
+
+### Backup characteristics
+
+- Dump format: plain SQL
+- Borg compression: zstd
+- Borg deduplication enabled
+- Retention managed independently from photo backups
+
+Raw PostgreSQL data directories are never backed up.
+
 
 ## Restore scenarios
 
@@ -47,6 +104,17 @@ This document describes backup and restore procedures for critical data.
 3. Remount dataset
 4. Restart containers
 
+### Database restore (Immich)
+
+1. Restore the desired Borg archive containing the database dump
+2. Extract the SQL dump file
+3. Stop the Immich application containers
+4. Drop and recreate the database if needed
+5. Restore using:
+   psql immich < immich.sql
+6. Restart containers
+
+
 ### Full server loss
 
 1. Reinstall Proxmox
@@ -55,7 +123,30 @@ This document describes backup and restore procedures for critical data.
 4. Recreate LXC containers
 5. Reattach datasets
 
+Application containers are not the primary recovery target.
+Application state is restored through data and database recovery.
+
+
 ## Rationale
 
 The system is designed so that restoring data automatically restores services.
 Application state is never the primary recovery target.
+
+## Automation
+
+All backups are orchestrated from the Proxmox host.
+
+- Individual backup scripts exist per data type
+- A master script triggers all backups in sequence
+- Execution is handled via cron
+
+This design ensures:
+- predictable execution order
+- separation of concerns
+- easy extension with additional services
+
+### Failure handling
+
+Backup scripts are designed to fail fast and log errors.
+Partial failures (e.g. database backup failing while photo backup succeeds)
+do not prevent other backup layers from completing.
