@@ -145,8 +145,44 @@ This design ensures:
 - separation of concerns
 - easy extension with additional services
 
+## Implementation notes
+
+Backup execution is handled by the following scripts on the Proxmox host:
+
+- /root/borg-photos.sh
+- /root/borg-immich-db.sh
+- /root/borg-all.sh
+
+Logs are written to:
+- /var/log/borg-photos.log
+- /var/log/borg-immich-db.log
+- /var/log/borg-cron.log
+
+All scripts must be executable (chmod +x).
+
+
+
 ### Failure handling
 
 Backup scripts are designed to fail fast and log errors.
 Partial failures (e.g. database backup failing while photo backup succeeds)
 do not prevent other backup layers from completing.
+
+## Troubleshooting
+
+If a scheduled backup did not run:
+
+1. Verify cron is running:
+   systemctl status cron
+
+2. Verify the cron entry exists:
+   crontab -l
+
+3. Check the cron log:
+   tail /var/log/borg-cron.log
+
+4. Verify scripts are executable:
+   ls -l /root/borg-*.sh
+
+5. Test in a cron-like environment:
+   env -i bash -c '/root/borg-all.sh'
