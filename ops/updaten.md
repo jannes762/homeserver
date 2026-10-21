@@ -43,5 +43,6 @@ docker image prune
 | 102 | Media         | /srv/media              |
 | 110 | Nextcloud     | Geen docker             |
 | 121 | Vikunja       | /data/knowledge/vikunja |
+| 122 | uMaps         | /opt/umap               |
 | 150 | Preventie     | /srv                    |
 | TBC | HomeAssistant | TBC                     |
